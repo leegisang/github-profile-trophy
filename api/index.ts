@@ -36,14 +36,52 @@ export default (request: Request) =>
     return app(req);
   });
 
+function getPublicOrigin(req: Request): string {
+  const url = new URL(req.url);
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const host = (forwardedHost ?? req.headers.get("host") ?? url.host).split(",")[0]
+    .trim();
+  const proto = (forwardedProto ?? url.protocol.replace(":", "")).split(",")[0]
+    .trim();
+  return `${proto}://${host}`;
+}
+
+function isTrueEnv(value: string | undefined): boolean {
+  return (value ?? "").trim().toLowerCase() === "true";
+}
+
 async function app(req: Request): Promise<Response> {
+  const pathname = new URL(req.url).pathname;
+  // Self-hosting hardening: only allow root requests.
+  // Note: depending on the platform/router, the function may also be invoked on `/api`.
+  if (pathname !== "/" && pathname !== "/api" && pathname !== "/api/") {
+    return new Response("Not Found", {
+      status: 404,
+      headers: new Headers({
+        "Content-Type": "text/plain; charset=utf-8",
+        "Cache-Control": "no-store",
+      }),
+    });
+  }
+
   const params = parseParams(req);
-  const username = params.get("username");
+  const defaultUsername = Deno.env.get("DEFAULT_USERNAME")?.trim() || null;
+  const forceDefaultUsername = isTrueEnv(Deno.env.get("FORCE_DEFAULT_USERNAME"));
+
+  let username = params.get("username")?.trim() || null;
+  if (forceDefaultUsername && defaultUsername) {
+    username = defaultUsername;
+  } else if (username === null && defaultUsername) {
+    username = defaultUsername;
+  }
+
   const row = params.getNumberValue("row", CONSTANTS.DEFAULT_MAX_ROW);
   const column = params.getNumberValue("column", CONSTANTS.DEFAULT_MAX_COLUMN);
   const themeParam: string = params.getStringValue("theme", "default");
   if (username === null) {
-    const [base] = req.url.split("?");
+    const publicOrigin = getPublicOrigin(req);
+    const base = `${publicOrigin}/`;
     const error = new Error400(
       `<section>
       <div>
@@ -59,7 +97,7 @@ async function app(req: Request): Promise<Response> {
       <div>
         <h2>You can use this form: </h2>
         <p>Enter your username and click get trophies</p>
-        <form action="https://github-profile-trophy.vercel.app/" method="get">
+        <form action="${base}" method="get">
           <label for="username">GitHub Username</label>
           <input type="text" name="username" id="username" placeholder="Ex. gabriel-logan" required>
           <label for="theme">Theme (Optional)</label>
@@ -73,7 +111,7 @@ async function app(req: Request): Promise<Response> {
         </form>
       </div>
       <script>
-        const base = "https://github-profile-trophy.vercel.app/";
+        const base = "${base}";
         const button = document.querySelector("button");
         const input = document.querySelector("input");
         const temporarySpan = document.querySelector("#temporary-span");
@@ -93,7 +131,7 @@ async function app(req: Request): Promise<Response> {
       {
         status: error.status,
         headers: new Headers({
-          "Content-Type": "text",
+          "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": cacheControlHeader,
         }),
       },
