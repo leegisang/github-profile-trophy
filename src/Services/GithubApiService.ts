@@ -106,7 +106,12 @@ export class GithubApiService extends GithubRepository {
         );
       });
     } catch (error) {
-      if (error.cause instanceof ServiceError) {
+      if (error instanceof ServiceError) {
+        Logger.error(error.message);
+        return error;
+      }
+      // Some libraries wrap the real error in `cause`
+      if (error instanceof Error && error.cause instanceof ServiceError) {
         Logger.error(error.cause.message);
         return error.cause;
       }
@@ -115,7 +120,7 @@ export class GithubApiService extends GithubRepository {
       } else {
         Logger.error(error);
       }
-      return new ServiceError("not found", EServiceKindError.NOT_FOUND);
+      return new ServiceError("unknown error", EServiceKindError.NOT_FOUND);
     }
   }
 }

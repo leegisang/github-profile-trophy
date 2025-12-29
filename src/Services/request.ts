@@ -7,6 +7,14 @@ import {
   ServiceError,
 } from "../Types/index.ts";
 
+function isUnauthorizedMessage(message: string): boolean {
+  const m = message.toLowerCase();
+  return m.includes("bad credentials") ||
+    m.includes("requires authentication") ||
+    m.includes("you must be logged in") ||
+    m.includes("authentication") && m.includes("failed");
+}
+
 export async function requestGithubData<T = unknown>(
   query: string,
   variables: { [key: string]: string },
@@ -33,6 +41,7 @@ function handleError(
   reponseErrors: GithubErrorResponse | GithubExceedError,
 ): ServiceError {
   let isRateLimitExceeded = false;
+  let isUnauthorized = false;
   const arrayErrors = (reponseErrors as GithubErrorResponse)?.errors || [];
   const objectError = (reponseErrors as GithubExceedError) || {};
 
@@ -40,18 +49,29 @@ function handleError(
     isRateLimitExceeded = arrayErrors.some((error) =>
       error.type.includes(EServiceKindError.RATE_LIMIT)
     );
+    isUnauthorized = arrayErrors.some((error) =>
+      typeof error.message === "string" && isUnauthorizedMessage(error.message)
+    );
   }
 
   if (objectError?.message) {
     isRateLimitExceeded = objectError?.message.includes(
       "rate limit",
     );
+    isUnauthorized = isUnauthorized || isUnauthorizedMessage(objectError.message);
   }
 
   if (isRateLimitExceeded) {
     throw new ServiceError(
       "Rate limit exceeded",
       EServiceKindError.RATE_LIMIT,
+    );
+  }
+
+  if (isUnauthorized) {
+    throw new ServiceError(
+      "Unauthorized",
+      EServiceKindError.UNAUTHORIZED,
     );
   }
 

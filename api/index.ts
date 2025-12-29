@@ -9,6 +9,7 @@ import { GithubApiService } from "../src/Services/GithubApiService.ts";
 import { ServiceError } from "../src/Types/index.ts";
 import { ErrorPage } from "../src/pages/Error.ts";
 import { cacheProvider } from "../src/config/cache.ts";
+import { renderErrorSvg } from "../src/error_svg.ts";
 
 const serviceProvider = new GithubApiService();
 const client = new GithubRepositoryService(serviceProvider).repository;
@@ -36,19 +37,25 @@ export default (request: Request) =>
     return app(req);
   });
 
-function getPublicOrigin(req: Request): string {
-  const url = new URL(req.url);
-  const forwardedProto = req.headers.get("x-forwarded-proto");
-  const forwardedHost = req.headers.get("x-forwarded-host");
-  const host = (forwardedHost ?? req.headers.get("host") ?? url.host).split(",")[0]
-    .trim();
-  const proto = (forwardedProto ?? url.protocol.replace(":", "")).split(",")[0]
-    .trim();
-  return `${proto}://${host}`;
+function isDebugEnabled(): boolean {
+  return (Deno.env.get("DEBUG") ?? "").trim().toLowerCase() === "true";
 }
 
-function isTrueEnv(value: string | undefined): boolean {
-  return (value ?? "").trim().toLowerCase() === "true";
+function isGithubImageProxy(req: Request): boolean {
+  const ua = (req.headers.get("user-agent") ?? "").toLowerCase();
+  return ua.includes("github-camo") || ua.includes("github") && ua.includes("image");
+}
+
+function isImageRequest(req: Request): boolean {
+  const accept = (req.headers.get("accept") ?? "").toLowerCase();
+  const fetchDest = (req.headers.get("sec-fetch-dest") ?? "").toLowerCase();
+  return fetchDest === "image" || accept.includes("image/") || isGithubImageProxy(req);
+}
+
+function wantsHtml(req: Request): boolean {
+  const accept = (req.headers.get("accept") ?? "").toLowerCase();
+  // Only treat it as an HTML page if it's not an image request.
+  return !isImageRequest(req) && accept.includes("text/html");
 }
 
 async function app(req: Request): Promise<Response> {
@@ -172,13 +179,43 @@ async function app(req: Request): Promise<Response> {
   if (!hasCache) {
     const userResponseInfo = await client.requestUserInfo(username);
     if (userResponseInfo instanceof ServiceError) {
+      const hasGithubToken = !!(Deno.env.get("GITHUB_TOKEN1")?.trim());
+      const contextHtml = isDebugEnabled()
+        ? `<div><strong>Debug</strong><br/>username: <code>${username}</code><br/>GITHUB_TOKEN1 set: <code>${hasGithubToken}</code></div>` +
+          `<div>Tips: verify the username exists at <code>https://github.com/${username}</code>. If token is missing/invalid, set <code>GITHUB_TOKEN1</code> in Vercel (Production) and redeploy.</div>`
+        : undefined;
+      if (isImageRequest(req)) {
+        const lines: string[] = [];
+        lines.push(`username: ${username}`);
+        if (userResponseInfo.code === 401) {
+          lines.push("GitHub API auth failed. Check GITHUB_TOKEN1.");
+        } else if (userResponseInfo.code === 419) {
+          lines.push("GitHub API rate limit exceeded. Try later.");
+        } else {
+          lines.push("User not found or GitHub API error.");
+        }
+        if (isDebugEnabled()) {
+          lines.push(`GITHUB_TOKEN1 set: ${hasGithubToken}`);
+        }
+        return new Response(
+          renderErrorSvg(`${userResponseInfo.code} - ${userResponseInfo.name}`, lines),
+          {
+            // GitHub README treats non-2xx as a broken image; return 200 with an error SVG instead.
+            status: 200,
+            headers: new Headers({
+              "Content-Type": "image/svg+xml; charset=utf-8",
+              "Cache-Control": "no-store",
+            }),
+          },
+        );
+      }
       return new Response(
-        ErrorPage({ error: userResponseInfo }).render(),
+        ErrorPage({ error: userResponseInfo, contextHtml }).render(),
         {
           status: userResponseInfo.code,
           headers: new Headers({
-            "Content-Type": "text",
-            "Cache-Control": cacheControlHeader,
+            "Content-Type": "text/html; charset=utf-8",
+            "Cache-Control": "no-store",
           }),
         },
       );
