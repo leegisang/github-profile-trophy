@@ -68,6 +68,16 @@ These are endpoints provided by volunteers. Please use these in moderation.
 - [https://github-profile-trophy-reiyua-mirror.vercel.app](https://github-profile-trophy-reiyua-mirror.vercel.app)
   by [reiyua](https://github.com/reiyua)
 
+## Self-hosting tip: show only your trophies on `/`
+
+If you deploy this repo to Vercel and want the root path (`/`) to always render
+your trophies without needing `?username=...` (and prevent others from using your
+deployment as a public service), set these environment variables
+in your Vercel Project Settings:
+
+- **DEFAULT_USERNAME**: your GitHub username (e.g. `ryo-ma`)
+- **GITHUB_TOKEN1**: a GitHub Personal Access Token (PAT) used for GitHub GraphQL
+
 # Quick Start
 
 Add the following code to your readme. When pasting the code into your profile's
