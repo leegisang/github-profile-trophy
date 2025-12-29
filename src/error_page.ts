@@ -119,6 +119,11 @@ export class Error400 extends BaseError {
   readonly message = "Bad Request";
 }
 
+export class Error401 extends BaseError {
+  readonly status = 401;
+  readonly message = "Unauthorized";
+}
+
 export class Error419 extends BaseError {
   readonly status = 419;
   readonly message = "Rate Limit Exceeded";

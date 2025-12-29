@@ -12,6 +12,8 @@ export class ServiceError extends Error {
     switch (this.cause) {
       case EServiceKindError.RATE_LIMIT:
         return 419;
+      case EServiceKindError.UNAUTHORIZED:
+        return 401;
       case EServiceKindError.NOT_FOUND:
         return 404;
       default:
