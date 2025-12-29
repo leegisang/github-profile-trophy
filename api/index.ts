@@ -1,15 +1,19 @@
-import { Card } from "../src/card.ts";
-import { CONSTANTS, parseParams } from "../src/utils.ts";
-import { COLORS, Theme } from "../src/theme.ts";
-import { Error400 } from "../src/error_page.ts";
 import "https://deno.land/x/dotenv@v0.5.0/load.ts";
-import { staticRenderRegeneration } from "../src/StaticRenderRegeneration/index.ts";
 import { GithubRepositoryService } from "../src/Repository/GithubRepository.ts";
 import { GithubApiService } from "../src/Services/GithubApiService.ts";
+import { staticRenderRegeneration } from "../src/StaticRenderRegeneration/index.ts";
 import { ServiceError } from "../src/Types/index.ts";
-import { ErrorPage } from "../src/pages/Error.ts";
+import { Card } from "../src/card.ts";
 import { cacheProvider } from "../src/config/cache.ts";
+import { Error400 } from "../src/error_page.ts";
 import { renderErrorSvg } from "../src/error_svg.ts";
+import { ErrorPage } from "../src/pages/Error.ts";
+import { COLORS, Theme } from "../src/theme.ts";
+import { CONSTANTS, parseParams } from "../src/utils.ts";
+
+// TypeScript tooling in some editors doesn't include Deno's global typings.
+// Deno is provided at runtime by Vercel's deno runtime.
+declare const Deno: { env: { get(key: string): string | undefined } };
 
 const serviceProvider = new GithubApiService();
 const client = new GithubRepositoryService(serviceProvider).repository;
@@ -39,6 +43,24 @@ export default (request: Request) =>
 
 function isDebugEnabled(): boolean {
   return (Deno.env.get("DEBUG") ?? "").trim().toLowerCase() === "true";
+}
+
+function isTrueEnv(value: string | undefined): boolean {
+  return (value ?? "").trim().toLowerCase() === "true";
+}
+
+function getPublicOrigin(req: Request): string {
+  // Vercel provides x-forwarded-* headers; fall back to request.url.
+  const url = new URL(req.url);
+  const forwardedProto = req.headers.get("x-forwarded-proto");
+  const forwardedHost = req.headers.get("x-forwarded-host");
+  const host = (forwardedHost ?? req.headers.get("host") ?? url.host)
+    .split(",")[0]
+    .trim();
+  const proto = (forwardedProto ?? url.protocol.replace(":", ""))
+    .split(",")[0]
+    .trim();
+  return `${proto}://${host}`;
 }
 
 function isGithubImageProxy(req: Request): boolean {
@@ -182,7 +204,7 @@ async function app(req: Request): Promise<Response> {
       const hasGithubToken = !!(Deno.env.get("GITHUB_TOKEN1")?.trim());
       const contextHtml = isDebugEnabled()
         ? `<div><strong>Debug</strong><br/>username: <code>${username}</code><br/>GITHUB_TOKEN1 set: <code>${hasGithubToken}</code></div>` +
-          `<div>Tips: verify the username exists at <code>https://github.com/${username}</code>. If token is missing/invalid, set <code>GITHUB_TOKEN1</code> in Vercel (Production) and redeploy.</div>`
+        `<div>Tips: verify the username exists at <code>https://github.com/${username}</code>. If token is missing/invalid, set <code>GITHUB_TOKEN1</code> in Vercel (Production) and redeploy.</div>`
         : undefined;
       if (isImageRequest(req)) {
         const lines: string[] = [];
