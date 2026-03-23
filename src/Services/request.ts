@@ -59,7 +59,8 @@ function handleError(
     isRateLimitExceeded = responseData.message.toLowerCase().includes(
       "rate limit",
     );
-    isUnauthorized = isUnauthorized || isUnauthorizedMessage(responseData.message);
+    isUnauthorized = isUnauthorized ||
+      isUnauthorizedMessage(responseData.message);
   }
 
   if (isRateLimitExceeded) {

@@ -17,7 +17,9 @@ export function renderErrorSvg(title: string, lines: string[]): string {
   const height = Math.max(120, paddingTop + safeLines.length * lineHeight + 24);
 
   const text = safeLines.map((line, i) =>
-    `<text x="32" y="${paddingTop + i * lineHeight}" class="body">${line}</text>`
+    `<text x="32" y="${
+      paddingTop + i * lineHeight
+    }" class="body">${line}</text>`
   ).join("");
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -29,10 +31,10 @@ export function renderErrorSvg(title: string, lines: string[]): string {
     .body { fill: #c9d1d9; font: 14px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
   </style>
   <rect x="0" y="0" width="${width}" height="${height}" rx="10" class="bg"/>
-  <rect x="0.5" y="0.5" width="${width - 1}" height="${height - 1}" rx="10" class="border"/>
+  <rect x="0.5" y="0.5" width="${width - 1}" height="${
+    height - 1
+  }" rx="10" class="border"/>
   <text x="32" y="28" class="title">${safeTitle}</text>
   ${text}
 </svg>`;
 }
-
-

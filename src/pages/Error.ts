@@ -21,7 +21,9 @@ export function ErrorPage({ error, contextHtml }: ErrorPageProps) {
 
   if (error.cause === EServiceKindError.NOT_FOUND) {
     cause = new Error404(
-      `Sorry, the user you are looking for was not found.${contextHtml ? `<br/><br/>${contextHtml}` : ""}`,
+      `Sorry, the user you are looking for was not found.${
+        contextHtml ? `<br/><br/>${contextHtml}` : ""
+      }`,
     );
   }
 

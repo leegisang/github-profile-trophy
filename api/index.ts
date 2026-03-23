@@ -65,13 +65,15 @@ function getPublicOrigin(req: Request): string {
 
 function isGithubImageProxy(req: Request): boolean {
   const ua = (req.headers.get("user-agent") ?? "").toLowerCase();
-  return ua.includes("github-camo") || ua.includes("github") && ua.includes("image");
+  return ua.includes("github-camo") ||
+    ua.includes("github") && ua.includes("image");
 }
 
 function isImageRequest(req: Request): boolean {
   const accept = (req.headers.get("accept") ?? "").toLowerCase();
   const fetchDest = (req.headers.get("sec-fetch-dest") ?? "").toLowerCase();
-  return fetchDest === "image" || accept.includes("image/") || isGithubImageProxy(req);
+  return fetchDest === "image" || accept.includes("image/") ||
+    isGithubImageProxy(req);
 }
 
 function wantsHtml(req: Request): boolean {
@@ -96,7 +98,9 @@ async function app(req: Request): Promise<Response> {
 
   const params = parseParams(req);
   const defaultUsername = Deno.env.get("DEFAULT_USERNAME")?.trim() || null;
-  const forceDefaultUsername = isTrueEnv(Deno.env.get("FORCE_DEFAULT_USERNAME"));
+  const forceDefaultUsername = isTrueEnv(
+    Deno.env.get("FORCE_DEFAULT_USERNAME"),
+  );
 
   let username = params.get("username")?.trim() || null;
   if (forceDefaultUsername && defaultUsername) {
@@ -203,7 +207,7 @@ async function app(req: Request): Promise<Response> {
       const hasGithubToken = !!(Deno.env.get("GITHUB_TOKEN1")?.trim());
       const contextHtml = isDebugEnabled()
         ? `<div><strong>Debug</strong><br/>username: <code>${username}</code><br/>GITHUB_TOKEN1 set: <code>${hasGithubToken}</code></div>` +
-        `<div>Tips: verify the username exists at <code>https://github.com/${username}</code>. If token is missing/invalid, set <code>GITHUB_TOKEN1</code> in Vercel (Production) and redeploy.</div>`
+          `<div>Tips: verify the username exists at <code>https://github.com/${username}</code>. If token is missing/invalid, set <code>GITHUB_TOKEN1</code> in Vercel (Production) and redeploy.</div>`
         : undefined;
       if (isImageRequest(req)) {
         const lines: string[] = [];
@@ -219,7 +223,10 @@ async function app(req: Request): Promise<Response> {
           lines.push(`GITHUB_TOKEN1 set: ${hasGithubToken}`);
         }
         return new Response(
-          renderErrorSvg(`${userResponseInfo.code} - ${userResponseInfo.name}`, lines),
+          renderErrorSvg(
+            `${userResponseInfo.code} - ${userResponseInfo.name}`,
+            lines,
+          ),
           {
             // GitHub README treats non-2xx as a broken image; return 200 with an error SVG instead.
             status: 200,
